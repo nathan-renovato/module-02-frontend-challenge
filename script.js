@@ -1,212 +1,209 @@
 const moviesDiv = document.querySelector('.movies');
+const buttonNext = document.querySelector('.btn-next');
+const buttonPrev = document.querySelector('.btn-prev');
+const searchedMovieInput = document.querySelector('.input');
+
+const body = document.querySelector('body');
 const modalDiv = document.querySelector('.modal');
 const modalClose = document.querySelector('.modal__close');
-const modalMovie = document.querySelector('.modal__movie');
 const modalTitle = document.querySelector('.modal__title');
 const modalImg = document.querySelector('.modal__img');
 const modalDescription = document.querySelector('.modal__description');
 const modalGenres = document.querySelector('.modal__genres');
 const modalAverage = document.querySelector('.modal__average');
-const buttonNext = document.querySelector('.btn-next');
-const buttonPrev = document.querySelector('.btn-prev');
-
-
-let carousel;
-let carouselPageNumber;
-let carouselPages = 0;
-
-const paginationMovies = () => {
-    let start = carouselPages * 5;
-    let end = (carouselPages + 1) * 5;
-    return carousel.slice(start, end);
-}
-
-/*  for (let i = 0; i < carouselPageNumber; i++) {
-      carouselPages.push(i);
-  }*/
-
-const buildCarousel = (movieList) => {
-    carousel = movieList;
-
-    carouselPageNumber = Math.ceil(carousel.length / 5);
-
-    let currentPageMovies = paginationMovies();
-
-    const featureFilmDiv = document.createElement('div');
-    featureFilmDiv.classList.add('movie');
-
-    currentPageMovies.forEach(movie => {
-        const featureFilmDiv = document.createElement('div');
-        featureFilmDiv.classList.add('movie');
-        featureFilmDiv.id = movie.id;
-        featureFilmDiv.style.backgroundImage = `url(${movie.poster_path})`;
-
-        const movieInfoDiv = document.createElement('div');
-        movieInfoDiv.classList.add('movie_info');
-
-        const movieTitleSpan = document.createElement('span');
-        movieTitleSpan.classList.add('movie_title');
-        movieTitleSpan.textContent = movie.title;
-
-        const movieRatingSpan = document.createElement('span');
-        movieRatingSpan.classList.add('movie_rating');
-        movieRatingSpan.textContent = movie.vote_average.toFixed(1);
-
-        const starImg = document.createElement('img');
-        starImg.src = './assets/estrela.svg';
-        starImg.alt = 'Estrela';
-
-        movieRatingSpan.append(starImg);
-        movieInfoDiv.append(movieTitleSpan, movieRatingSpan);
-        featureFilmDiv.append(movieInfoDiv);
-        moviesDiv.append(featureFilmDiv);
-    });
-};
-
-
-const searchedMovieInput = document.querySelector('.input');
-
-searchedMovieInput.addEventListener('keydown', function (e) {
-    const search = searchedMovieInput.value;
-
-    if (!search || e.key !== 'Enter') return;
-
-    carouselPages = 0;
-
-    fetch(`https://tmdb-proxy.cubos-academy.workers.dev/3/search/movie?language=pt-BR&include_adult=false&query=${search}`).then(answer => {
-        const promiseBody = answer.json();
-
-        promiseBody.then(body => {
-            if (body.results.length === 0) {
-                searchedMovieInput.value = '';
-                return;
-            }
-
-            carousel = '';
-            currentPageMovies = '';
-            moviesDiv.innerHTML = '';
-            buildCarousel(body.results);
-        })
-    })
-})
-
-
-
-fetch('https://tmdb-proxy.cubos-academy.workers.dev/3/discover/movie?language=pt-BR&include_adult=false').then(answer => {
-    const promiseBody = answer.json();
-
-
-    promiseBody.then(body => {
-        buildCarousel(body.results);
-    });
-
-    let movieCarousel = [...moviesDiv.children];
-    movieCarousel.forEach(movie => {
-        movie.addEventListener('click', function () {
-            modalDiv.classList.remove('hidden');
-            const id = movie.id;
-
-            fetch(`https://tmdb-proxy.cubos-academy.workers.dev/3/movie/${id}?language=pt-BR`).then(answer => {
-                const promiseBody = answer.json();
-
-                promiseBody.then(body => {
-                    const genres = body.genres;
-
-                    genres.forEach(genre => {
-                        const spanGenre = document.createElement('span');
-                        spanGenre.classList.add('modal__genre');
-                        spanGenre.textContent = genre.name;
-
-                        modalGenres.append(spanGenre);
-                    });
-
-                    modalTitle.textContent = body.title;
-                    modalImg.src = body.backdrop_path;
-                    modalDescription.textContent = body.overview;
-                    modalAverage.textContent = body.vote_average.toFixed(1);
-                })
-            })
-        })
-    })
-});
-
-buttonNext.addEventListener('click', function () {
-    carouselPages++;
-    paginationMovies();
-});
-
-
-buttonPrev.addEventListener('click', function () {
-    carouselPages -= 1;
-});
 
 const highlightVideo = document.querySelector('.highlight__video');
 const highlightTitle = document.querySelector('.highlight__title');
 const highlightRating = document.querySelector('.highlight__rating');
 const highlightGenres = document.querySelector('.highlight__genres');
-const highlighthLaunch = document.querySelector('.highlight__launch');
-const highlighthDescription = document.querySelector('.highlight__description');
+const highlightLaunch = document.querySelector('.highlight__launch');
+const highlightDescription = document.querySelector('.highlight__description');
 const highlightVideoLink = document.querySelector('.highlight__video-link');
 
+let currentPage = 0;
+let numberMoviePages;
+let currentMovies = [];
 
-fetch('https://tmdb-proxy.cubos-academy.workers.dev/3/movie/436969?language=pt-BR').then(answer => {
-    const promiseBody = answer.json();
+searchedMovieInput.addEventListener('keydown', function (e) {
 
-    promiseBody.then(body => {
-        const genres = body.genres;
-        const genresArray = [];
+    if (e.key !== 'Enter') {
+        return;
+    }
 
-        genres.forEach(genre => {
-            genresArray.push(genre.name);
+    currentPage = 0;
+
+    if (searchedMovieInput.value) {
+        loadSearchMovies(searchedMovieInput.value);
+    } else {
+        loadMovies();
+    }
+
+    searchedMovieInput.value = '';
+});
+
+buttonNext.addEventListener('click', function () {
+    if (currentPage === numberMoviePages) {
+        currentPage = 0;
+    } else {
+        currentPage++;
+    }
+    loadMovies();
+});
+
+
+buttonPrev.addEventListener('click', function () {
+    if (currentPage === 0) {
+        currentPage = numberMoviePages;
+    } else {
+        currentPage--;
+    }
+    loadMovies();
+});
+
+modalDiv.addEventListener('click', closeModal);
+
+modalClose.addEventListener('click', closeModal);
+
+function closeModal() {
+    modalDiv.classList.add('hidden');
+    body.style.overflow = 'auto';
+}
+
+function displayMovies() {
+    moviesDiv.textContent = '';
+
+    for (let i = currentPage * 5; i < (currentPage + 1) * 5; i++) {
+        const movie = currentMovies[i];
+
+        const movieContainer = document.createElement('div');
+        movieContainer.classList.add('movie');
+
+        movieContainer.addEventListener('click', function () {
+            loadMovie(movie.id);
         });
 
-        let genresString = genresArray.join(', ');
+        movieContainer.style.backgroundImage = `url('${movie.poster_path}')`;
 
-        const data = new Date(body.release_date);
+        const movieInfoDiv = document.createElement('div');
+        movieInfoDiv.classList.add('movie__info');
 
-        const dateMovie = (data.getDate()) + "-" + (data.getMonth() + 1) + "-" + data.getFullYear();
+        const movieTitleSpan = document.createElement('span');
+        movieTitleSpan.classList.add('movie__title');
+        movieTitleSpan.textContent = movie.title;
 
+        const movieRatingSpan = document.createElement('span');
+        movieRatingSpan.classList.add('movie__rating');
 
-        highlightVideo.style.backgroundImage = `url(${body.backdrop_path})`;
-        highlightTitle.textContent = body.title;
-        highlightRating.textContent = body.vote_average.toFixed(1);
-        highlightGenres.textContent = genresString;
-        highlighthLaunch.textContent = dateMovie;
-        highlighthDescription.textContent = body.overview;
+        const starImg = document.createElement('img');
+        starImg.src = './assets/estrela.svg';
+        starImg.alt = 'Estrela';
 
-    })
-});
+        movieRatingSpan.append(starImg, movie.vote_average);
+        movieInfoDiv.append(movieTitleSpan, movieRatingSpan);
+        movieContainer.append(movieInfoDiv);
+        moviesDiv.append(movieContainer);
+    }
+}
 
-fetch('https://tmdb-proxy.cubos-academy.workers.dev/3/movie/436969/videos?language=pt-BR').then(answer => {
-    const promiseBody = answer.json();
+function loadSearchMovies(search) {
+    const responsePromise = fetch(`https://tmdb-proxy.cubos-academy.workers.dev/3/search/movie?language=pt-BR&include_adult=false&query=${search}`);
 
-    promiseBody.then(body => {
-        const queryMovie = body.results[0].key;
+    responsePromise.then(answer => {
+        const promiseBody = answer.json();
 
-        highlightVideoLink.href = `https://www.youtube.com/watch?v=${queryMovie}`;
-    })
-});
+        promiseBody.then(body => {
+            currentMovies = body.results;
+            numberMoviePages = (Math.ceil(body.results.length / 5) - 1);
+            displayMovies();
+        });
+    });
+}
 
+function loadMovies() {
+    const responsePromise = fetch('https://tmdb-proxy.cubos-academy.workers.dev/3/discover/movie?language=pt-BR&include_adult=false');
 
-modalDiv.addEventListener('click', function () {
-    modalDiv.classList.add('hidden');
-    modalGenres.innerHTML = '';
+    responsePromise.then(answer => {
+        const promiseBody = answer.json();
+
+        promiseBody.then(body => {
+            currentMovies = body.results;
+            numberMoviePages = (Math.ceil(body.results.length / 5) - 1);
+            displayMovies();
+        });
+    });
+}
+
+function loadHighlightMovie() {
+    const basePromise = fetch('https://tmdb-proxy.cubos-academy.workers.dev/3/movie/436969?language=pt-BR');
+
+    basePromise.then(answer => {
+        const promiseBody = answer.json();
+
+        promiseBody.then(body => {
+            highlightVideo.style.background = `linear-gradient(rgba(0, 0, 0, 0.6) 100%, rgba(0, 0, 0, 0.6) 100%),
+            url(${body.backdrop_path}) no-repeat center/cover`;
+            highlightTitle.textContent = body.title;
+            highlightRating.textContent = body.vote_average.toFixed(1);
+            highlightGenres.textContent = body.genres.map((genre) => {
+                return genre.name;
+            }).join(', ');
+            highlightLaunch.textContent = (new Date(body.release_date)).toLocaleDateString
+                ('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' });
+            highlightDescription.textContent = body.overview;
+        });
+    });
+
+    const linkPromise = fetch('https://tmdb-proxy.cubos-academy.workers.dev/3/movie/436969/videos?language=pt-BR');
+
+    linkPromise.then(answer => {
+        const promiseBody = answer.json();
+
+        promiseBody.then(body => {
+            const highlightMovie = body.results[0].key;
+            highlightVideoLink.href = `https://www.youtube.com/watch?v=${highlightMovie}`;
+        });
+    });
+}
+
+function loadMovie(id) {
+    modalDiv.classList.remove('hidden');
+    body.style.overflow = 'hidden';
     modalTitle.textContent = '';
     modalImg.src = '';
     modalDescription.textContent = '';
     modalAverage.textContent = '';
-});
 
-modalMovie.addEventListener('click', function (e) {
-    e.stopPropagation();
-});
+    const responsePromise = fetch(`https://tmdb-proxy.cubos-academy.workers.dev/3/movie/${id}?language=pt-BR`);
+
+    responsePromise.then(answer => {
+        const promiseBody = answer.json();
+
+        promiseBody.then(body => {
+            modalTitle.textContent = body.title;
+            modalImg.src = body.backdrop_path;
+            modalImg.alt = body.title;
+            modalDescription.textContent = body.overview;
+            modalAverage.textContent = body.vote_average;
+
+            modalGenres.textContent = '';
+
+            body.genres.forEach(genre => {
+                const spanGenre = document.createElement('span');
+                spanGenre.classList.add('modal__genre');
+                spanGenre.textContent = genre.name;
+
+                modalGenres.append(spanGenre);
+            });
+        });
+    });
+}
+
+loadMovies();
+loadHighlightMovie();
 
 
 
-
-const body = document.querySelector('body');
 const buttonTheme = document.querySelector('.btn-theme');
-
 
 const initialTheme = localStorage.getItem('theme');
 
@@ -233,8 +230,8 @@ body.style.setProperty('--highlight-background', highlightBackground);
 const highlightColor = initialTheme === 'light' ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
 body.style.setProperty('--highlight-color', highlightColor);
 
-const highlightDescription = initialTheme === 'light' ? '#000' : '#FFF';
-body.style.setProperty('--highlight-description', highlightDescription);
+const highlightDescriptionColor = initialTheme === 'light' ? '#000' : '#FFF';
+body.style.setProperty('--highlight-description', highlightDescriptionColor);
 
 buttonTheme.addEventListener('click', function () {
     const theme = initialTheme === 'dark' ? 'light' : 'dark';
@@ -244,11 +241,14 @@ buttonTheme.addEventListener('click', function () {
         body.style.getPropertyValue('--background-color') === '#242424' ? '#FFF' : '#242424';
     body.style.setProperty('--background-color', newBackgroundColor);
 
-    buttonTheme.src = body.style.getPropertyValue('--background-color') === '#FFF' ? './assets/light-mode.svg' : './assets/dark-mode.svg';
+    buttonTheme.src = body.style.getPropertyValue('--background-color') === '#FFF'
+        ? './assets/light-mode.svg' : './assets/dark-mode.svg';
 
-    buttonNext.src = body.style.getPropertyValue('--background-color') === '#FFF' ? './assets/seta-direita-preta.svg' : './assets/seta-direita-branca.svg';
+    buttonNext.src = body.style.getPropertyValue('--background-color') === '#FFF'
+        ? './assets/seta-direita-preta.svg' : './assets/seta-direita-branca.svg';
 
-    buttonPrev.src = body.style.getPropertyValue('--background-color') === '#FFF' ? './assets/seta-esquerda-preta.svg' : './assets/seta-esquerda-branca.svg';
+    buttonPrev.src = body.style.getPropertyValue('--background-color') === '#FFF'
+        ? './assets/seta-esquerda-preta.svg' : './assets/seta-esquerda-branca.svg';
 
     const newInputBorderColor =
         body.style.getPropertyValue('--input-border-color') === '#979797' ? '#FFF' : '#979797';
@@ -274,7 +274,7 @@ buttonTheme.addEventListener('click', function () {
             : 'rgba(255, 255, 255, 0.7)';
     body.style.setProperty('--highlight-color', newHighlightColor);
 
-    const newHighlightDescription =
+    const newHighlightDescriptionColor =
         body.style.getPropertyValue('--highlight-description') === '#FFF' ? '#000' : '#FFF';
-    body.style.setProperty('--highlight-description', newHighlightDescription);
-})
+    body.style.setProperty('--highlight-description', newHighlightDescriptionColor);
+});
